@@ -68,6 +68,7 @@ namespace Suika.Editor
             Camera cam = Camera.main;
             if (cam != null)
             {
+                cam.orthographic     = true;   // 2D 게임 — 반드시 직교 투영
                 cam.orthographicSize = 6f;
                 cam.transform.position = new Vector3(0f, -1f, -10f);
                 cam.backgroundColor = new Color(1f, 0.97f, 0.91f); // #FFF8E7

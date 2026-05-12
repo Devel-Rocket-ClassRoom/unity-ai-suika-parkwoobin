@@ -46,11 +46,17 @@ namespace Suika
         void Update()
         {
             if (GameManager.Instance != null && GameManager.Instance.IsGameOver) return;
-            if (_currentFruit == null) return;
+
+            // 카메라 지연 초기화 — Start() 시점에 null이었을 경우 재시도
+            if (_cam == null) _cam = Camera.main;
+
+            if (_currentFruit == null || _cam == null) return;
 
             // 마우스 X → 월드 X 변환
+            // ScreenToWorldPoint 의 z 는 '카메라로부터의 거리(depth)' 를 의미한다.
+            // 카메라가 (0, -1, -10) 에 있으면 월드 z=0 평면까지 거리는 10.
             Vector3 mouseScreen = Input.mousePosition;
-            mouseScreen.z = Mathf.Abs(_cam.transform.position.z);
+            mouseScreen.z = -_cam.transform.position.z; // 월드 z=0 평면까지의 거리
             Vector3 mouseWorld = _cam.ScreenToWorldPoint(mouseScreen);
             float clampedX = Mathf.Clamp(mouseWorld.x, leftBound, rightBound);
             _currentFruit.transform.position = new Vector3(clampedX, dropY, 0f);
