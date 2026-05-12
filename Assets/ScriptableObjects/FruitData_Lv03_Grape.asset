@@ -15,6 +15,6 @@ MonoBehaviour:
   level: 3
   fruitName: Grape
   sprite: {fileID: 0}
-  radius: 0.9
+  radius: 0.38
   mergeScore: 6
   droppable: 1

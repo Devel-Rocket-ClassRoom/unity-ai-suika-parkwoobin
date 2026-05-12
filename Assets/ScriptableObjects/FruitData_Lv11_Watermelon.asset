@@ -15,6 +15,6 @@ MonoBehaviour:
   level: 11
   fruitName: Watermelon
   sprite: {fileID: 0}
-  radius: 4.75
+  radius: 1.65
   mergeScore: 0
   droppable: 0

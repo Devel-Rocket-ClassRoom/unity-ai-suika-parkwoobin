@@ -15,6 +15,6 @@ MonoBehaviour:
   level: 7
   fruitName: Pear
   sprite: {fileID: 0}
-  radius: 2.3
+  radius: 0.88
   mergeScore: 28
   droppable: 0

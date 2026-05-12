@@ -30,14 +30,14 @@ namespace Suika
         void UpdateScore(int score)
         {
             if (scoreText != null)
-                scoreText.text = $"SCORE\n{score:D4}";
+                scoreText.text = $"{score:D4}";
             UpdateBest(GameManager.Instance.BestScore);
         }
 
         void UpdateBest(int best)
         {
             if (bestScoreText != null)
-                bestScoreText.text = $"BEST\n{best:D4}";
+                bestScoreText.text = $"{best:D4}";
         }
     }
 }

@@ -15,6 +15,6 @@ MonoBehaviour:
   level: 8
   fruitName: Peach
   sprite: {fileID: 0}
-  radius: 2.75
+  radius: 1.03
   mergeScore: 36
   droppable: 0

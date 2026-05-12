@@ -14,20 +14,24 @@ namespace Suika
         // ── 공개 상태 ──────────────────────────────────────
         public FruitData Data { get; private set; }
 
-        /// <summary>낙하 중(아직 착지 전)이면 true — 이 상태에서는 머지 무시.</summary>
+        /// <summary>낙하 중(아직 착지 전)이면 true.</summary>
         public bool IsFalling { get; private set; } = true;
+
+        /// <summary>땅 또는 다른 과일에 닿은 적 있으면 true — DangerZone 게임오버 판정 활성화.</summary>
+        public bool HasTouched { get; private set; }
+
+        public bool IsDropped => _dropped;
 
         // ── 내부 참조 ──────────────────────────────────────
         Rigidbody2D _rb;
         CircleCollider2D _col;
         SpriteRenderer _sr;
 
-        // 머지 중복 방지 플래그
         bool _merging;
+        bool _dropped; // Drop() 호출 후 true — 커서 제어 중인 과일과 구분
 
-        // 착지 판정용 (속도가 충분히 느려지면 착지 완료)
         const float LandedSpeedThreshold = 0.1f;
-        const float LandedCheckDelay = 0.3f;   // 생성 직후 판정 유예 시간
+        const float LandedCheckDelay = 0.3f;
         float _spawnTime;
 
         // ── 초기화 ─────────────────────────────────────────
@@ -43,19 +47,30 @@ namespace Suika
         {
             Data = data;
 
-            // 스프라이트 적용 — 없으면 레벨에 맞는 색상 원형으로 대체
+            // 스프라이트 적용 우선순위:
+            // 1) FruitData.sprite  2) Prefab에 이미 설정된 sprite  3) 임시 색상 원형
             if (_sr != null)
-                _sr.sprite = data.sprite != null ? data.sprite : MakePlaceholderSprite(data.level);
+            {
+                if (data.sprite != null)
+                    _sr.sprite = data.sprite;
+                else if (_sr.sprite == null)
+                    _sr.sprite = MakePlaceholderSprite(data.level);
+            }
 
-            // 크기 적용
-            // 스프라이트는 PPU=64, 64x64px → 1 Unity unit 크기
-            // diameter = radius * 2 (GDD 상대값 그대로 Unity unit 사용)
+            // 크기 적용 — 스프라이트의 실제 PPU에 관계없이 항상 data.radius 크기로 맞춤
+            // spriteSize : 현재 스프라이트 1장이 차지하는 Unity unit 수
+            // localScale = diameter / spriteSize → 월드 크기 = diameter
+            // col.radius = spriteSize * 0.5f    → 월드 반지름 = spriteSize * 0.5f * (diameter/spriteSize) = radius
             float diameter = data.radius * 2f;
-            transform.localScale = new Vector3(diameter, diameter, 1f);
-            _col.radius = 0.5f; // 로컬 스페이스 0.5 → 월드 스페이스 radius
+            float spriteSize = (_sr != null && _sr.sprite != null)
+                ? _sr.sprite.bounds.size.x
+                : 1f;
+            float scaleFactor = diameter / spriteSize;
+            transform.localScale = new Vector3(scaleFactor, scaleFactor, 1f);
+            _col.radius = spriteSize * 0.5f;
 
             // 물리 설정
-            _rb.gravityScale = 1f;
+            _rb.gravityScale = 3f;
             _rb.linearDamping = 0.3f;
             _rb.angularDamping = 0.5f;
 
@@ -86,12 +101,22 @@ namespace Suika
         {
             if (_merging) return;
 
+            // 땅(벽) 또는 다른 과일에 닿으면 DangerZone 판정 활성화
+            if (!HasTouched)
+            {
+                HasTouched = true;
+                string touchTarget = col.gameObject.GetComponent<FruitBehaviour>() != null
+                    ? $"과일(Lv{col.gameObject.GetComponent<FruitBehaviour>().Data?.level})"
+                    : "벽/바닥";
+                Debug.Log($"[Fruit] Lv{Data?.level} {Data?.fruitName} → {touchTarget} 충돌 — DangerZone 판정 ON");
+            }
+
             FruitBehaviour other = col.gameObject.GetComponent<FruitBehaviour>();
             if (other == null) return;
             if (other._merging) return;
 
-            // 같은 레벨, 둘 다 착지 완료 상태일 때만 머지
-            if (Data.level == other.Data.level && !IsFalling && !other.IsFalling)
+            // 같은 레벨이고 둘 다 드롭된 상태(커서 제어 중 아님)이면 즉시 머지
+            if (Data.level == other.Data.level && _dropped && other._dropped)
             {
                 _merging = true;
                 other._merging = true;
@@ -125,16 +150,16 @@ namespace Suika
             Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
             float half = size * 0.5f;
             for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
-            {
-                float dx = x - half + 0.5f;
-                float dy = y - half + 0.5f;
-                float dist = Mathf.Sqrt(dx * dx + dy * dy);
-                float alpha = dist <= half - 1f ? 1f
-                            : dist <= half     ? 1f - (dist - (half - 1f))
-                            : 0f;
-                tex.SetPixel(x, y, new Color(col.r, col.g, col.b, alpha));
-            }
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x - half + 0.5f;
+                    float dy = y - half + 0.5f;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    float alpha = dist <= half - 1f ? 1f
+                                : dist <= half ? 1f - (dist - (half - 1f))
+                                : 0f;
+                    tex.SetPixel(x, y, new Color(col.r, col.g, col.b, alpha));
+                }
             tex.Apply();
             return Sprite.Create(tex,
                 new Rect(0, 0, size, size),
@@ -148,7 +173,15 @@ namespace Suika
         {
             _rb.bodyType = isKinematic ? RigidbodyType2D.Kinematic : RigidbodyType2D.Dynamic;
             if (isKinematic)
+            {
                 IsFalling = true;
+                _dropped = false;
+            }
+            else
+            {
+                // 머지로 생성된 과일 — 즉시 합치기 가능
+                _dropped = true;
+            }
         }
 
         /// <summary>드롭 실행 — Kinematic 해제 후 물리 적용.</summary>
@@ -157,6 +190,7 @@ namespace Suika
             _rb.bodyType = RigidbodyType2D.Dynamic;
             _spawnTime = Time.time;
             IsFalling = true;
+            _dropped = true;
         }
     }
 }

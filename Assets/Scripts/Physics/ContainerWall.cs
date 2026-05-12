@@ -2,15 +2,7 @@ using UnityEngine;
 
 namespace Suika
 {
-    /// <summary>
-    /// 수박 게임 컨테이너(상자)의 바닥과 좌우 벽을 런타임에 생성한다.
-    /// 이 컴포넌트를 빈 GameObject "Container" 에 붙이면
-    /// Awake 에서 EdgeCollider2D 3개(바닥·왼쪽·오른쪽)가 자동 생성된다.
-    ///
-    ///   halfWidth  : 컨테이너 내부 절반 너비 (기본 2.5)
-    ///   height     : 컨테이너 높이 (기본 5.0)
-    ///   bottomY    : 바닥 Y 좌표 (기본 -4.0)
-    /// </summary>
+    [ExecuteAlways]
     public class ContainerWall : MonoBehaviour
     {
         [Header("컨테이너 크기")]
@@ -18,67 +10,102 @@ namespace Suika
         public float height    = 6f;
         public float bottomY   = -4f;
 
+        [Header("물리 여백")]
+        [Tooltip("스프라이트 테두리 두께만큼 물리 벽을 안쪽으로 들여씀")]
+        public float physicsInset = 0.15f;
+
         [Header("물리 재질")]
-        [Tooltip("벽 마찰·탄성 설정 (없으면 기본값 사용)")]
         public PhysicsMaterial2D wallMaterial;
 
-        void Awake()
+        [Header("시각화 — U자형 이미지 연결")]
+        [Tooltip("U자형 컨테이너 스프라이트를 여기에 드래그")]
+        public Sprite containerSprite;
+        public Color  containerColor = Color.white;
+        public int    sortingOrder   = 1;
+
+        void Awake() => Rebuild();
+
+        void OnValidate()
         {
-            BuildWalls();
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.delayCall += () =>
+            {
+                if (this != null) Rebuild();
+            };
+#endif
         }
 
-        void BuildWalls()
+        void Rebuild()
         {
-            // ── 바닥 ─────────────────────────────────────────────
-            CreateEdge("Wall_Bottom",
-                new Vector2(-halfWidth, bottomY),
-                new Vector2( halfWidth, bottomY));
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                GameObject c = transform.GetChild(i).gameObject;
+                if (Application.isPlaying) Destroy(c);
+                else DestroyImmediate(c);
+            }
 
-            // ── 왼쪽 벽 ─────────────────────────────────────────
-            CreateEdge("Wall_Left",
-                new Vector2(-halfWidth, bottomY),
-                new Vector2(-halfWidth, bottomY + height));
-
-            // ── 오른쪽 벽 ────────────────────────────────────────
-            CreateEdge("Wall_Right",
-                new Vector2( halfWidth, bottomY),
-                new Vector2( halfWidth, bottomY + height));
+            BuildPhysics();
+            BuildVisual();
         }
 
-        void CreateEdge(string objName, Vector2 start, Vector2 end)
+        void BuildPhysics()
         {
-            GameObject go = new GameObject(objName);
+            if (!Application.isPlaying) return;
+
+            // U자형 단일 EdgeCollider2D — physicsInset 만큼 안쪽에 배치
+            float pw = halfWidth - physicsInset;
+            float pb = bottomY   + physicsInset;
+
+            GameObject go = new GameObject("Wall_U");
+            go.hideFlags = HideFlags.DontSave | HideFlags.NotEditable;
             go.transform.SetParent(transform, false);
 
             EdgeCollider2D edge = go.AddComponent<EdgeCollider2D>();
-            edge.points = new[] { start, end };
-
+            edge.points = new[]
+            {
+                new Vector2(-pw, bottomY + height),   // 왼쪽 상단
+                new Vector2(-pw, pb),                 // 왼쪽 하단
+                new Vector2( pw, pb),                 // 오른쪽 하단
+                new Vector2( pw, bottomY + height),   // 오른쪽 상단
+            };
             if (wallMaterial != null)
                 edge.sharedMaterial = wallMaterial;
         }
 
-        // ── 에디터용 기즈모 (씬 뷰에서 컨테이너 시각화) ──────────
+        void BuildVisual()
+        {
+            GameObject go = new GameObject("Container_Visual");
+            go.hideFlags = HideFlags.DontSave | HideFlags.NotEditable;
+            go.transform.SetParent(transform, false);
+            go.transform.position = new Vector3(0f, bottomY + height * 0.5f, 0f);
+
+            SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite       = containerSprite;
+            sr.color        = containerColor;
+            sr.sortingOrder = sortingOrder;
+
+            if (containerSprite != null)
+            {
+                Vector2 s = containerSprite.bounds.size;
+                go.transform.localScale = new Vector3(
+                    halfWidth * 2f / s.x,
+                    height       / s.y,
+                    1f);
+            }
+            else
+            {
+                go.transform.localScale = new Vector3(halfWidth * 2f, height, 1f);
+            }
+        }
+
 #if UNITY_EDITOR
         void OnDrawGizmos()
         {
-            Gizmos.color = new Color(0.78f, 0.66f, 0.42f, 0.8f); // 나무 갈색 (#C8A870)
-
-            float l = -halfWidth;
-            float r =  halfWidth;
-            float b =  bottomY;
-            float t =  bottomY + height;
-
-            // 바닥
+            Gizmos.color = new Color(0.78f, 0.66f, 0.42f, 0.6f);
+            float l = -halfWidth, r = halfWidth, b = bottomY, t = bottomY + height;
             Gizmos.DrawLine(new Vector3(l, b), new Vector3(r, b));
-            // 왼쪽
             Gizmos.DrawLine(new Vector3(l, b), new Vector3(l, t));
-            // 오른쪽
             Gizmos.DrawLine(new Vector3(r, b), new Vector3(r, t));
-
-            // 위험선 (빨간 점선 느낌 — 실선으로 표시)
-            float dangerY = bottomY + height - 1f;
-            Gizmos.color = new Color(1f, 0.42f, 0.42f, 0.9f); // #FF6B6B
-            Gizmos.DrawLine(new Vector3(l, dangerY), new Vector3(r, dangerY));
         }
 #endif
     }

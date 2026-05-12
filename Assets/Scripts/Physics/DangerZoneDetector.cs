@@ -3,22 +3,13 @@ using UnityEngine;
 
 namespace Suika
 {
-    /// <summary>
-    /// 상단 위험선(트리거 영역) 위에 과일이 일정 시간 이상 머물면
-    /// GameManager.TriggerGameOver() 를 호출한다.
-    ///
-    /// 설정 방법:
-    ///   - 이 컴포넌트를 빈 GameObject 에 추가
-    ///   - BoxCollider2D(IsTrigger=true) 를 같이 붙이고 위험선 영역에 배치
-    ///   - Layer 에 "Fruit" 레이어를 만들고, 모든 과일 Prefab 에 적용
-    /// </summary>
     [RequireComponent(typeof(Collider2D))]
     public class DangerZoneDetector : MonoBehaviour
     {
-        [Tooltip("이 시간(초) 동안 과일이 위험선 위에 머물면 게임오버")]
-        public float gameOverDelay = 3f;
+        [Header("게임오버 지연 시간")]
+        [SerializeField] private float gameOverDelay = 1f;
 
-        // 현재 위험 영역 안에 있는 과일과 진입 시각
+        // 과일 → 위험 영역 판정 시작 시각
         readonly Dictionary<FruitBehaviour, float> _fruitsInZone = new();
 
         Collider2D _col;
@@ -33,37 +24,74 @@ namespace Suika
         {
             FruitBehaviour fb = other.GetComponent<FruitBehaviour>();
             if (fb == null) return;
+
             if (!_fruitsInZone.ContainsKey(fb))
+            {
                 _fruitsInZone[fb] = Time.time;
+
+                Debug.Log($"[DangerZone] Lv{fb.Data?.level} {fb.Data?.fruitName} 진입 " +
+                          $"(HasTouched: {fb.HasTouched})");
+            }
         }
 
         void OnTriggerExit2D(Collider2D other)
         {
             FruitBehaviour fb = other.GetComponent<FruitBehaviour>();
-            if (fb != null)
-                _fruitsInZone.Remove(fb);
+            if (fb == null) return;
+
+            _fruitsInZone.Remove(fb);
+
+            Debug.Log($"[DangerZone] Lv{fb.Data?.level} {fb.Data?.fruitName} 탈출");
         }
 
         void Update()
         {
             if (GameManager.Instance == null || GameManager.Instance.IsGameOver) return;
 
-            // null(파괴된 과일) 제거
             List<FruitBehaviour> toRemove = new();
+            List<FruitBehaviour> toReset = new();
+
             foreach (var kv in _fruitsInZone)
             {
-                if (kv.Key == null) { toRemove.Add(kv.Key); continue; }
+                FruitBehaviour fb = kv.Key;
 
-                // 낙하 중 과일은 판정 유예
-                if (kv.Key.IsFalling) { _fruitsInZone[kv.Key] = Time.time; continue; }
-
-                if (Time.time - kv.Value >= gameOverDelay)
+                if (fb == null)
                 {
+                    toRemove.Add(fb);
+                    continue;
+                }
+
+                // 아직 바닥/과일/벽 등에 닿은 적 없는 과일은 판정 제외
+                // 생성 위치에 걸쳐 있는 과일은 여기서 계속 타이머가 리셋됨
+                if (!fb.HasTouched)
+                {
+                    toReset.Add(fb);
+                    continue;
+                }
+
+                float elapsed = Time.time - kv.Value;
+
+                // 핵심: 1초 이상 DangerZone 안에 계속 있을 때만 게임오버
+                if (elapsed >= gameOverDelay)
+                {
+                    Debug.Log($"[DangerZone] Lv{fb.Data?.level} {fb.Data?.fruitName} " +
+                              $"{elapsed:F2}초 동안 위험 영역에 머물러 게임오버");
+
                     GameManager.Instance.TriggerGameOver();
                     return;
                 }
             }
-            foreach (var k in toRemove) _fruitsInZone.Remove(k);
+
+            foreach (var k in toRemove)
+            {
+                _fruitsInZone.Remove(k);
+            }
+
+            foreach (var k in toReset)
+            {
+                if (k != null)
+                    _fruitsInZone[k] = Time.time;
+            }
         }
     }
 }

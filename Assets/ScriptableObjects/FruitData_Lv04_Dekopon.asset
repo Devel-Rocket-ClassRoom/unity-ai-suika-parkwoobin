@@ -15,6 +15,6 @@ MonoBehaviour:
   level: 4
   fruitName: Dekopon
   sprite: {fileID: 0}
-  radius: 1.2
+  radius: 0.5
   mergeScore: 10
   droppable: 1

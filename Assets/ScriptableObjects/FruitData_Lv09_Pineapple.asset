@@ -15,6 +15,6 @@ MonoBehaviour:
   level: 9
   fruitName: Pineapple
   sprite: {fileID: 0}
-  radius: 3.25
+  radius: 1.2
   mergeScore: 45
   droppable: 0

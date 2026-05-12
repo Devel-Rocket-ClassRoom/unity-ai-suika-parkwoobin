@@ -17,11 +17,11 @@ namespace Suika.Editor
     public static class SuikaSceneSetup
     {
         // ── 컨테이너 치수 (ContainerWall 과 일치) ──────────────
-        const float HalfWidth  = 2.5f;
-        const float Height     = 6f;
-        const float BottomY    = -4f;
-        const float DangerY    = BottomY + Height - 1f;   // 위험선 Y
-        const float DropY      = BottomY + Height + 0.5f; // 드롭 라인 Y
+        const float HalfWidth = 2.5f;
+        const float Height = 6f;
+        const float BottomY = -4f;
+        const float DangerY = BottomY + Height - 0.4f; // 위험선 Y (컨테이너 상단 근처)
+        const float DropY = BottomY + Height + 0.5f; // 드롭 라인 Y
 
         [MenuItem("Suika/Setup Main Scene")]
         static void SetupScene()
@@ -40,8 +40,8 @@ namespace Suika.Editor
             GameObject container = GetOrCreate("Container");
             ContainerWall wall = EnsureComponent<ContainerWall>(container);
             wall.halfWidth = HalfWidth;
-            wall.height    = Height;
-            wall.bottomY   = BottomY;
+            wall.height = Height;
+            wall.bottomY = BottomY;
             Undo.RegisterCreatedObjectUndo(container, "Create Container");
 
             // ── 4. DangerZone (위험선 트리거) ─────────────────────
@@ -50,18 +50,17 @@ namespace Suika.Editor
 
             BoxCollider2D dangerCol = EnsureComponent<BoxCollider2D>(dangerObj);
             dangerCol.isTrigger = true;
-            dangerCol.size      = new Vector2(HalfWidth * 2f, 0.2f);
+            dangerCol.size = new Vector2(HalfWidth * 2f, 0.2f);
 
             DangerZoneDetector detector = EnsureComponent<DangerZoneDetector>(dangerObj);
-            detector.gameOverDelay = 3f;
             Undo.RegisterCreatedObjectUndo(dangerObj, "Create DangerZone");
 
             // ── 5. FruitSpawner ───────────────────────────────────
             GameObject spawnerObj = GetOrCreate("FruitSpawner");
             FruitSpawner spawner = EnsureComponent<FruitSpawner>(spawnerObj);
-            spawner.dropY       = DropY;
-            spawner.leftBound   = -HalfWidth + 0.3f;
-            spawner.rightBound  =  HalfWidth - 0.3f;
+            spawner.dropY = DropY;
+            spawner.leftBound = -HalfWidth + 0.3f;
+            spawner.rightBound = HalfWidth - 0.3f;
             Undo.RegisterCreatedObjectUndo(spawnerObj, "Create FruitSpawner");
 
             // ── 6. Camera ─────────────────────────────────────────
@@ -138,7 +137,7 @@ namespace Suika.Editor
             RectTransform curRect = EnsureComponent<RectTransform>(curScoreObj);
             curRect.anchorMin = new Vector2(0f, 1f);
             curRect.anchorMax = new Vector2(0f, 1f);
-            curRect.pivot     = new Vector2(0f, 1f);
+            curRect.pivot = new Vector2(0f, 1f);
             curRect.anchoredPosition = new Vector2(20f, -20f);
             curRect.sizeDelta = new Vector2(160f, 60f);
             TMP_Text curText = EnsureComponent<TextMeshProUGUI>(curScoreObj);
@@ -152,7 +151,7 @@ namespace Suika.Editor
             RectTransform bestRect = EnsureComponent<RectTransform>(bestScoreObj);
             bestRect.anchorMin = new Vector2(1f, 1f);
             bestRect.anchorMax = new Vector2(1f, 1f);
-            bestRect.pivot     = new Vector2(1f, 1f);
+            bestRect.pivot = new Vector2(1f, 1f);
             bestRect.anchoredPosition = new Vector2(-20f, -20f);
             bestRect.sizeDelta = new Vector2(160f, 60f);
             TMP_Text bestText = EnsureComponent<TextMeshProUGUI>(bestScoreObj);
@@ -166,7 +165,7 @@ namespace Suika.Editor
             RectTransform prevRect = EnsureComponent<RectTransform>(previewObj);
             prevRect.anchorMin = new Vector2(1f, 1f);
             prevRect.anchorMax = new Vector2(1f, 1f);
-            prevRect.pivot     = new Vector2(1f, 1f);
+            prevRect.pivot = new Vector2(1f, 1f);
             prevRect.anchoredPosition = new Vector2(-20f, -100f);
             prevRect.sizeDelta = new Vector2(80f, 80f);
 
@@ -239,18 +238,26 @@ namespace Suika.Editor
             goPanel.SetActive(false);
         }
 
-        // ── 위험선 시각화 ─────────────────────────────────────────
+        // ── 위험선 시각화 (DangerLine 컴포넌트 — 코드로 점선 생성) ──
         static void SetupDangerLine()
         {
             GameObject lineObj = GetOrCreate("DangerLine");
-            LineRenderer lr = EnsureComponent<LineRenderer>(lineObj);
-            lr.positionCount = 2;
-            lr.SetPosition(0, new Vector3(-HalfWidth, DangerY, 0f));
-            lr.SetPosition(1, new Vector3( HalfWidth, DangerY, 0f));
-            lr.startWidth = lr.endWidth = 0.04f;
-            lr.material   = new Material(Shader.Find("Sprites/Default"));
-            lr.startColor = lr.endColor = new Color(1f, 0.42f, 0.42f, 0.9f); // #FF6B6B
-            lr.useWorldSpace = true;
+            lineObj.transform.position = new Vector3(0f, DangerY, 0f);
+
+            // 기존 LineRenderer / SpriteRenderer 제거
+            LineRenderer oldLr = lineObj.GetComponent<LineRenderer>();
+            SpriteRenderer oldSr = lineObj.GetComponent<SpriteRenderer>();
+            if (oldLr != null) Object.DestroyImmediate(oldLr);
+            if (oldSr != null) Object.DestroyImmediate(oldSr);
+
+            DangerLine dl = EnsureComponent<DangerLine>(lineObj);
+            dl.totalWidth = HalfWidth * 2f;
+            dl.dashLength = 0.18f;
+            dl.gapLength = 0.12f;
+            dl.lineHeight = 0.05f;
+            dl.dashColor = new Color(1f, 0.42f, 0.42f, 0.9f);
+            dl.sortingOrder = 50;
+            dl.Rebuild(); // 값 설정 후 즉시 점선 생성
         }
 
         // ── 유틸 ────────────────────────────────────────────────────

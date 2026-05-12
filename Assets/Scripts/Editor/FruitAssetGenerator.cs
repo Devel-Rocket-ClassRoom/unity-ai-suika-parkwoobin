@@ -14,17 +14,33 @@ namespace Suika.Editor
         // ── GDD 과일 데이터 ─────────────────────────────────────────
         static readonly FruitInfo[] Fruits =
         {
-            new FruitInfo(1,  "Cherry",      0.5f,  1,  true,  new Color(0.90f, 0.10f, 0.10f)),
-            new FruitInfo(2,  "Strawberry",  0.7f,  3,  true,  new Color(0.95f, 0.30f, 0.35f)),
-            new FruitInfo(3,  "Grape",       0.9f,  6,  true,  new Color(0.55f, 0.20f, 0.70f)),
-            new FruitInfo(4,  "Dekopon",     1.2f,  10, true,  new Color(1.00f, 0.60f, 0.10f)),
-            new FruitInfo(5,  "Persimmon",   1.5f,  15, true,  new Color(0.95f, 0.45f, 0.10f)),
-            new FruitInfo(6,  "Apple",       1.9f,  21, false, new Color(0.85f, 0.15f, 0.15f)),
-            new FruitInfo(7,  "Pear",        2.3f,  28, false, new Color(0.80f, 0.85f, 0.20f)),
-            new FruitInfo(8,  "Peach",       2.75f, 36, false, new Color(1.00f, 0.75f, 0.65f)),
-            new FruitInfo(9,  "Pineapple",   3.25f, 45, false, new Color(0.95f, 0.85f, 0.10f)),
-            new FruitInfo(10, "Melon",       3.9f,  55, false, new Color(0.40f, 0.80f, 0.30f)),
-            new FruitInfo(11, "Watermelon",  4.75f, 0,  false, new Color(0.15f, 0.65f, 0.20f)),
+            new FruitInfo(1,  "Cherry",      0.22f, 1,  true,  new Color(0.90f, 0.10f, 0.10f)),
+            new FruitInfo(2,  "Strawberry",  0.30f, 3,  true,  new Color(0.95f, 0.30f, 0.35f)),
+            new FruitInfo(3,  "Grape",       0.38f, 6,  true,  new Color(0.55f, 0.20f, 0.70f)),
+            new FruitInfo(4,  "Gyool",       0.50f, 10, true,  new Color(1.00f, 0.60f, 0.10f)),
+            new FruitInfo(5,  "Orange",      0.62f, 15, true,  new Color(0.95f, 0.45f, 0.10f)),
+            new FruitInfo(6,  "Apple",       0.75f, 21, false, new Color(0.85f, 0.15f, 0.15f)),
+            new FruitInfo(7,  "Pear",        0.88f, 28, false, new Color(0.80f, 0.85f, 0.20f)),
+            new FruitInfo(8,  "Peach",       1.03f, 36, false, new Color(1.00f, 0.75f, 0.65f)),
+            new FruitInfo(9,  "Pineapple",   1.20f, 45, false, new Color(0.95f, 0.85f, 0.10f)),
+            new FruitInfo(10, "Melon",       1.40f, 55, false, new Color(0.40f, 0.80f, 0.30f)),
+            new FruitInfo(11, "Watermelon",  1.65f, 0,  false, new Color(0.15f, 0.65f, 0.20f)),
+        };
+
+        // Assets/png/ 폴더의 스프라이트 경로 (Lv1~11 순서)
+        static readonly string[] PngPaths =
+        {
+            "Assets/png/00_cherry.png",
+            "Assets/png/01_strawberry.png",
+            "Assets/png/02_grape.png",
+            "Assets/png/03_gyool.png",
+            "Assets/png/04_orange.png",
+            "Assets/png/05_apple.png",
+            "Assets/png/06_pear.png",
+            "Assets/png/07_peach.png",
+            "Assets/png/08_pineapple.png",
+            "Assets/png/09_melon.png",
+            "Assets/png/10_watermelon.png",
         };
 
         // ── 경로 ───────────────────────────────────────────────────
@@ -37,11 +53,43 @@ namespace Suika.Editor
             EnsureFolder(DataPath);
             EnsureFolder(PrefabPath);
 
+            // PNG 텍스처 타입을 Sprite 로 강제 설정 + PPU = 이미지 크기 → 1 sprite = 1 unity unit
+            foreach (string path in PngPaths)
+            {
+                TextureImporter ti = AssetImporter.GetAtPath(path) as TextureImporter;
+                if (ti == null) continue;
+
+                // 텍스처 크기 파악 (importSettings 적용 전 원본 크기)
+                ti.GetSourceTextureWidthAndHeight(out int texW, out int texH);
+                int ppu = Mathf.Max(texW, texH, 1);
+
+                bool needsReimport = ti.textureType          != TextureImporterType.Sprite
+                                  || ti.spriteImportMode     != SpriteImportMode.Single
+                                  || ti.spritePixelsPerUnit  != ppu;
+                if (needsReimport)
+                {
+                    ti.textureType         = TextureImporterType.Sprite;
+                    ti.spriteImportMode    = SpriteImportMode.Single;
+                    ti.spritePixelsPerUnit = ppu; // 1 텍스처 = 1 unity unit
+                    ti.mipmapEnabled       = false;
+                    ti.filterMode          = FilterMode.Bilinear;
+                    AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                }
+            }
+
             FruitData[] dataArray = new FruitData[Fruits.Length];
 
             for (int i = 0; i < Fruits.Length; i++)
             {
                 FruitInfo info = Fruits[i];
+
+                // ── 스프라이트 로드 (Assets/png/ 우선, 없으면 임시 원형) ──
+                Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(PngPaths[i]);
+                if (sprite == null)
+                {
+                    Debug.LogWarning($"[FruitAssetGenerator] {PngPaths[i]} 를 찾을 수 없어 임시 스프라이트 사용");
+                    sprite = MakeCircleSprite(info.color, 64);
+                }
 
                 // ── 1. FruitData ScriptableObject ──────────────────
                 string dataAssetPath = $"{DataPath}/FruitData_Lv{info.level:D2}_{info.name}.asset";
@@ -56,7 +104,7 @@ namespace Suika.Editor
                 data.radius     = info.radius;
                 data.mergeScore = info.score;
                 data.droppable  = info.droppable;
-                // 스프라이트는 나중에 연결 — 지금은 null 허용
+                data.sprite     = sprite;
                 EditorUtility.SetDirty(data);
                 dataArray[i] = data;
 
@@ -64,23 +112,17 @@ namespace Suika.Editor
                 string prefabAssetPath = $"{PrefabPath}/Fruit_Lv{info.level:D2}_{info.name}.prefab";
                 GameObject existingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabAssetPath);
 
-                // 임시 원형 텍스처 스프라이트 생성
-                Sprite placeholder = MakeCircleSprite(info.color, 64);
-
                 if (existingPrefab == null)
                 {
-                    // 새 Prefab 생성
-                    GameObject go = BuildFruitGameObject(info, data, placeholder);
+                    GameObject go = BuildFruitGameObject(info, data, sprite);
                     PrefabUtility.SaveAsPrefabAsset(go, prefabAssetPath);
                     Object.DestroyImmediate(go);
                 }
                 else
                 {
-                    // 기존 Prefab 업데이트
                     using (var scope = new PrefabUtility.EditPrefabContentsScope(prefabAssetPath))
                     {
-                        GameObject root = scope.prefabContentsRoot;
-                        ApplyFruitComponents(root, info, data, placeholder);
+                        ApplyFruitComponents(scope.prefabContentsRoot, info, data, sprite);
                     }
                 }
 

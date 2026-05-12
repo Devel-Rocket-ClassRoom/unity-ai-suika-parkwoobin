@@ -15,6 +15,6 @@ MonoBehaviour:
   level: 2
   fruitName: Strawberry
   sprite: {fileID: 0}
-  radius: 0.7
+  radius: 0.3
   mergeScore: 3
   droppable: 1
