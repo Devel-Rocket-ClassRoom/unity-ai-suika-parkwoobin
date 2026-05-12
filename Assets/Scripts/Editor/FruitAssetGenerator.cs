@@ -132,7 +132,10 @@ namespace Suika.Editor
             if (fs != null)
             {
                 fs.fruitDatabase = db;
-                fs.fruitPrefabs  = prefabs;
+                fs.fruitPrefabs = prefabs;
+                // 카메라가 미연결이면 자동 연결 (마우스 추적 버그 방지)
+                if (fs.mainCamera == null)
+                    fs.mainCamera = Camera.main != null ? Camera.main : Object.FindObjectOfType<Camera>();
                 EditorUtility.SetDirty(fs);
             }
         }

@@ -66,13 +66,25 @@ namespace Suika.Editor
 
             // ── 6. Camera ─────────────────────────────────────────
             Camera cam = Camera.main;
-            if (cam != null)
+            if (cam == null)
+                cam = Object.FindObjectOfType<Camera>();
+            if (cam == null)
             {
-                cam.orthographic     = true;   // 2D 게임 — 반드시 직교 투영
-                cam.orthographicSize = 6f;
-                cam.transform.position = new Vector3(0f, -1f, -10f);
-                cam.backgroundColor = new Color(1f, 0.97f, 0.91f); // #FFF8E7
+                GameObject camObj = new GameObject("Main Camera");
+                camObj.tag = "MainCamera";
+                cam = camObj.AddComponent<Camera>();
             }
+
+            cam.tag = "MainCamera"; // Camera.main 이 동작하려면 태그 필수
+            cam.orthographic = true; // 2D 게임 — 반드시 직교 투영
+            cam.orthographicSize = 6f;
+            cam.transform.position = new Vector3(0f, -1f, -10f);
+            cam.backgroundColor = new Color(1f, 0.97f, 0.91f); // #FFF8E7
+
+            // Camera → FruitSpawner 직접 연결 (Camera.main 탐색 실패 방지)
+            FruitSpawner spawnerComp = spawnerObj.GetComponent<FruitSpawner>();
+            if (spawnerComp != null)
+                spawnerComp.mainCamera = cam;
 
             // ── 7. Canvas + UI ────────────────────────────────────
             SetupUI(spawnerObj);
@@ -86,7 +98,7 @@ namespace Suika.Editor
             EditorUtility.SetDirty(spawnerObj);
 
             Debug.Log("[SuikaSceneSetup] 씬 구성 완료! " +
-                      "MergeHandler·FruitSpawner 의 FruitDatabase·Prefabs 를 Inspector 에서 연결하세요.");
+                "MergeHandler·FruitSpawner 의 FruitDatabase·Prefabs 를 Inspector 에서 연결하세요.");
         }
 
         // ── UI 구성 ────────────────────────────────────────────────
