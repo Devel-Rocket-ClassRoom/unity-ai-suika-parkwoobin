@@ -56,13 +56,13 @@ namespace Suika
             var top3 = GameManager.Instance.GetTop3Scores();
 
             if (firstScoreText != null)
-                firstScoreText.text = top3.Count > 0 ? $"1. {top3[0]:D4}" : "0000";
+                firstScoreText.text = top3.Count > 0 ? $"{top3[0]:D4}" : "0000";
 
             if (secondScoreText != null)
-                secondScoreText.text = top3.Count > 1 ? $"2. {top3[1]:D4}" : "0000";
+                secondScoreText.text = top3.Count > 1 ? $"{top3[1]:D4}" : "0000";
 
             if (thirdScoreText != null)
-                thirdScoreText.text = top3.Count > 2 ? $"3. {top3[2]:D4}" : "0000";
+                thirdScoreText.text = top3.Count > 2 ? $"{top3[2]:D4}" : "0000";
         }
 
         void UpdateCurrentScore(int score)

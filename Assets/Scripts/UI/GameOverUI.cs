@@ -20,28 +20,39 @@ namespace Suika
         [Header("버튼")]
         public Button retryButton;
 
-        void Start()
+        GameManager cachedGameManager;
+
+        void Awake()
         {
             if (gameOverPanel != null) gameOverPanel.SetActive(false);
 
-            if (GameManager.Instance != null)
-                GameManager.Instance.OnGameOver += ShowGameOver;
+            cachedGameManager = GameManager.Instance != null ? GameManager.Instance : FindFirstObjectByType<GameManager>();
+            if (cachedGameManager != null)
+                cachedGameManager.OnGameOver += ShowGameOver;
 
             if (retryButton != null)
                 retryButton.onClick.AddListener(() => GameManager.Instance?.RestartGame());
+
+            if (gameOverPanel == null || finalScoreText == null || bestScoreText == null || retryButton == null)
+            {
+                Debug.LogError($"[GameOverUI] Inspector 참조가 누락되었습니다. panel={gameOverPanel}, finalScore={finalScoreText}, bestScore={bestScoreText}, retryButton={retryButton}", this);
+            }
         }
 
         void OnDestroy()
         {
-            if (GameManager.Instance != null)
-                GameManager.Instance.OnGameOver -= ShowGameOver;
+            if (cachedGameManager != null)
+                cachedGameManager.OnGameOver -= ShowGameOver;
+
+            if (retryButton != null)
+                retryButton.onClick.RemoveAllListeners();
         }
 
         void ShowGameOver(int finalScore, int bestScore)
         {
             if (gameOverPanel != null) gameOverPanel.SetActive(true);
             if (finalScoreText != null) finalScoreText.text = $"SCORE  {finalScore}";
-            if (bestScoreText != null)  bestScoreText.text  = $"BEST   {bestScore}";
+            if (bestScoreText != null) bestScoreText.text = $"BEST   {bestScore}";
         }
     }
 }
